@@ -8,6 +8,11 @@ import express from "express";
 import httpProxy from "http-proxy";
 import * as tar from "tar";
 
+// Seed ~/.claude/.credentials.json from CLAUDE_CODE_OAUTH_TOKEN so openclaw's
+// anthropic-cli backend can register subscription-backed Claude models.
+// Must run before we spawn any openclaw subprocess.
+import "./seed-claude-credentials.js";
+
 // Migrate deprecated CLAWDBOT_* env vars → OPENCLAW_* so existing Railway deployments
 // keep working. Users should update their Railway Variables to use the new names.
 for (const suffix of ["PUBLIC_PORT", "STATE_DIR", "WORKSPACE_DIR", "GATEWAY_TOKEN", "CONFIG_PATH"]) {
