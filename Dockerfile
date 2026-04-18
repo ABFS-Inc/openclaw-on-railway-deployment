@@ -54,6 +54,17 @@ RUN apt-get update \
 # `openclaw update` expects pnpm. Provide it in the runtime image.
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
+# Install the Anthropic Claude Code CLI so openclaw's claude-cli backend
+# can spawn `claude` at inference time (it shells out to the binary rather
+# than calling the API directly). MUST be installed before the
+# NPM_CONFIG_PREFIX override below, otherwise the global install lands in
+# /data (a Railway volume) and gets masked at runtime when the volume is
+# mounted. Installing here puts `claude` in /usr/local/bin, which is on
+# PATH and outside the volume. The `claude --version` call is a build-time
+# smoke test — if the package name or platform binary ever breaks, the
+# Docker build fails loudly instead of silently shipping a broken image.
+RUN npm install -g @anthropic-ai/claude-code && claude --version
+
 # Persist user-installed tools by default by targeting the Railway volume.
 # - npm global installs -> /data/npm
 # - pnpm global installs -> /data/pnpm (binaries) + /data/pnpm-store (store)
