@@ -176,9 +176,37 @@ async function waitForGatewayReady(opts = {}) {
   return false;
 }
 
+// Ensure the Railway public URL is in gateway.controlUi.allowedOrigins, so
+// that /overview and /chat in the Control UI aren't blocked with
+// "origin not allowed". Runs on every gateway (re)start: idempotent and
+// a no-op when config doesn't exist or RAILWAY_PUBLIC_DOMAIN isn't set.
+function ensureControlUiOrigin() {
+  const domain = (process.env.RAILWAY_PUBLIC_DOMAIN ?? "").trim();
+  if (!domain) return;
+  const origin = `https://${domain}`;
+  try {
+    const p = configPath();
+    if (!fs.existsSync(p)) return;
+    const json = JSON.parse(fs.readFileSync(p, "utf8"));
+    json.gateway = json.gateway ?? {};
+    json.gateway.controlUi = json.gateway.controlUi ?? {};
+    const current = Array.isArray(json.gateway.controlUi.allowedOrigins)
+      ? json.gateway.controlUi.allowedOrigins
+      : [];
+    if (current.includes(origin)) return;
+    json.gateway.controlUi.allowedOrigins = [...current, origin];
+    fs.writeFileSync(p, JSON.stringify(json, null, 2), { mode: 0o600 });
+    console.log(`[wrapper] added ${origin} to gateway.controlUi.allowedOrigins`);
+  } catch (err) {
+    console.warn(`[wrapper] ensureControlUiOrigin failed: ${err}`);
+  }
+}
+
 async function startGateway() {
   if (gatewayProc) return;
   if (!isConfigured()) throw new Error("Gateway cannot start: not configured");
+
+  ensureControlUiOrigin();
 
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
